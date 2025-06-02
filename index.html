@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Budget Game</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f7f7fa; margin: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px #ddd; }
+    .center { text-align: center; margin-top: 120px; }
+    .hp-bar { background: #eee; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+    .hp-fill { height: 24px; background: #76c7c0; transition: width 0.3s; }
+    .warning { color: #c0392b; font-weight: bold; }
+    .success { color: #27ae60; font-weight: bold; }
+    label { display: block; margin-top: 12px; }
+    input[type="number"], input[type="text"], input[type="password"] { width: 100%; padding: 6px; margin-top: 4px; }
+    button { margin-top: 10px; padding: 8px 20px; border: none; background: #76c7c0; color: #fff; border-radius: 4px; cursor: pointer; }
+    ul { padding-left: 20px; }
+    .section { margin-bottom: 32px; }
+    .form-popup { display: none; background: #f9f9f9; border: 1px solid #ccc; padding: 16px; border-radius: 8px; margin-top: 8px; }
+    .form-popup label { margin-top: 0; }
+    .form-actions { text-align: right; }
+    #analysisSection { display: none; }
+    .character-area { text-align: center; margin: 24px 0 24px 0; }
+    .character-area img { width: 120px; height: 120px; object-fit: contain; }
+    .tab-btn { margin: 0 8px; padding: 8px 20px; border: none; border-radius: 4px; background: #eee; color: #333; cursor: pointer; }
+    .tab-btn.active { background: #76c7c0; color: #fff; }
+    .logout-btn { float: right; background: #c0392b; }
+  </style>
+</head>
+<body>
+  <!-- 초기화면 -->
+  <div id="startScreen" class="container center">
+    <h1>Budget Game</h1>
+    <button id="startBtn">게임 시작</button>
+  </div>
+
+  <!-- 회원가입/로그인 화면 -->
+  <div id="authScreen" class="container" style="display:none;">
+    <h1>Budget Game</h1>
+    <div style="text-align:center;">
+      <button class="tab-btn active" id="loginTabBtn" onclick="switchAuthTab('login')">로그인</button>
+      <button class="tab-btn" id="registerTabBtn" onclick="switchAuthTab('register')">회원가입</button>
+    </div>
+    <!-- 로그인 폼 -->
+    <form id="loginForm" style="margin-top:24px;">
+      <label>아이디
+        <input type="text" id="loginUsername" required>
+      </label>
+      <label>비밀번호
+        <input type="password" id="loginPassword" required>
+      </label>
+      <button type="submit">로그인</button>
+      <div id="loginMsg" class="warning"></div>
+    </form>
+    <!-- 회원가입 폼 -->
+    <form id="registerForm" style="display:none; margin-top:24px;">
+      <label>아이디
+        <input type="text" id="registerUsername" required>
+      </label>
+      <label>비밀번호
+        <input type="password" id="registerPassword" required>
+      </label>
+      <label>비밀번호 확인
+        <input type="password" id="registerPassword2" required>
+      </label>
+      <button type="submit">회원가입</button>
+      <div id="registerMsg" class="warning"></div>
+    </form>
+  </div>
+
+  <!-- 메인 게임 화면 -->
+  <div id="mainScreen" class="container" style="display:none;">
+    <button class="logout-btn" onclick="logout()" style="float:right;">로그아웃</button>
+    <h1>Budget Game</h1>
+    <div class="section">
+      <div class="hp-bar">
+        <div id="hpFill" class="hp-fill" style="width: 100%"></div>
+      </div>
+      <div>현재 HP(잔고): <span id="currentHp"></span> / <span id="maxHp"></span></div>
+      <div id="warningMsg" class="warning"></div>
+    </div>
+    <!-- 캐릭터 영역 -->
+    <div class="character-area">
+      <img id="characterImg" src="https://github.com/tngus0814/tngus0814.github.io/blob/main/smile.png?raw=true" alt="캐릭터">
+      <div id="characterStatus" style="margin-top:8px; font-weight:bold;"></div>
+    </div>
+    <div class="section">
+      <h2>예산 설정</h2>
+      <label>초기 예산 입력 (원):
+        <input type="number" id="initBudget" min="1" />
+      </label>
+      <button onclick="setBudget()">설정</button>
+    </div>
+    <div class="section">
+      <h2>수입/지출/목표 관리</h2>
+      <button onclick="showForm('incomeForm')">수입 추가</button>
+      <button onclick="showForm('expenseForm')">지출 추가</button>
+      <button onclick="showForm('goalForm')">목표 설정</button>
+      <!-- 수입 입력 폼 -->
+      <div id="incomeForm" class="form-popup">
+        <label>수입 (원):
+          <input type="number" id="incomeAmt" min="1" />
+        </label>
+        <label>설명:
+          <input type="text" id="incomeDesc" placeholder="설명" />
+        </label>
+        <div class="form-actions">
+          <button type="button" onclick="addIncome(); hideForm('incomeForm');">등록</button>
+          <button type="button" onclick="hideForm('incomeForm')">취소</button>
+        </div>
+      </div>
+      <!-- 지출 입력 폼 -->
+      <div id="expenseForm" class="form-popup">
+        <label>지출 (원):
+          <input type="number" id="expenseAmt" min="1" />
+        </label>
+        <label>설명:
+          <input type="text" id="expenseDesc" placeholder="설명" />
+        </label>
+        <div class="form-actions">
+          <button type="button" onclick="addExpense(); hideForm('expenseForm');">등록</button>
+          <button type="button" onclick="hideForm('expenseForm')">취소</button>
+        </div>
+      </div>
+      <!-- 목표 입력 폼 -->
+      <div id="goalForm" class="form-popup">
+        <label>목표 HP(잔고) 입력:
+          <input type="number" id="goalHp" min="1" />
+        </label>
+        <div class="form-actions">
+          <button type="button" onclick="setGoal(); hideForm('goalForm');">등록</button>
+          <button type="button" onclick="hideForm('goalForm')">취소</button>
+        </div>
+      </div>
+      <div id="goalStatus" style="margin-top:8px;"></div>
+    </div>
+    <div class="section">
+      <button onclick="toggleAnalysis()" id="analysisBtn">예산 분석하기</button>
+      <div id="analysisSection">
+        <h2>수입 내역</h2>
+        <ul id="incomeList"></ul>
+        <h2>지출 내역</h2>
+        <ul id="expenseList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 화면 전환
+    document.getElementById('startBtn').onclick = function() {
+      showScreen('auth');
+    };
+
+    function showScreen(screen) {
+      document.getElementById('startScreen').style.display = (screen === 'start') ? 'block' : 'none';
+      document.getElementById('authScreen').style.display = (screen === 'auth') ? 'block' : 'none';
+      document.getElementById('mainScreen').style.display = (screen === 'main') ? 'block' : 'none';
+    }
+
+    // 탭 전환
+    function switchAuthTab(tab) {
+      document.getElementById('loginTabBtn').classList.remove('active');
+      document.getElementById('registerTabBtn').classList.remove('active');
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('registerForm').style.display = 'none';
+      if (tab === 'login') {
+        document.getElementById('loginTabBtn').classList.add('active');
+        document.getElementById('loginForm').style.display = 'block';
+      } else {
+        document.getElementById('registerTabBtn').classList.add('active');
+        document.getElementById('registerForm').style.display = 'block';
+      }
+    }
+
+    // 회원정보 저장/조회 (localStorage 사용)
+    function getUsers() {
+      return JSON.parse(localStorage.getItem('bg_users') || '{}');
+    }
+    function setUsers(users) {
+      localStorage.setItem('bg_users', JSON.stringify(users));
+    }
+    function setSession(username) {
+      localStorage.setItem('bg_session', username);
+    }
+    function clearSession() {
+      localStorage.removeItem('bg_session');
+    }
+    function getSession() {
+      return localStorage.getItem('bg_session');
+    }
+
+    // 사용자별 데이터 저장/불러오기
+    function saveUserData() {
+      const username = getSession();
+      if (!username) return;
+      const data = {
+        maxHp,
+        currentHp,
+        incomes,
+        expenses,
+        goalHp
+      };
+      localStorage.setItem('bg_userdata_' + username, JSON.stringify(data));
+    }
+    function loadUserData() {
+      const username = getSession();
+      if (!username) return;
+      const data = JSON.parse(localStorage.getItem('bg_userdata_' + username));
+      if (data) {
+        maxHp = data.maxHp || 0;
+        currentHp = data.currentHp || 0;
+        incomes = data.incomes || [];
+        expenses = data.expenses || [];
+        goalHp = data.goalHp || null;
+      } else {
+        maxHp = 0;
+        currentHp = 0;
+        incomes = [];
+        expenses = [];
+        goalHp = null;
+      }
+    }
+
+    // 회원가입
+    document.getElementById('registerForm').onsubmit = function(e) {
+      e.preventDefault();
+      const username = document.getElementById('registerUsername').value.trim();
+      const password = document.getElementById('registerPassword').value;
+      const password2 = document.getElementById('registerPassword2').value;
+      const msg = document.getElementById('registerMsg');
+      msg.innerText = '';
+      if (!username || !password) {
+        msg.innerText = '아이디와 비밀번호를 입력하세요.';
+        return;
+      }
+      if (password !== password2) {
+        msg.innerText = '비밀번호가 일치하지 않습니다.';
+        return;
+      }
+      let users = getUsers();
+      if (users[username]) {
+        msg.innerText = '이미 존재하는 아이디입니다.';
+        return;
+      }
+      users[username] = { password: password };
+      setUsers(users);
+      alert('회원가입이 완료되었습니다.');
+      switchAuthTab('login');
+      document.getElementById('loginUsername').value = username;
+      document.getElementById('loginPassword').value = '';
+    };
+
+    // 로그인
+    document.getElementById('loginForm').onsubmit = function(e) {
+      e.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const msg = document.getElementById('loginMsg');
+      msg.innerText = '';
+      let users = getUsers();
+      if (!users[username]) {
+        msg.innerText = '존재하지 않는 아이디입니다.';
+        return;
+      }
+      if (users[username].password !== password) {
+        msg.innerText = '비밀번호가 일치하지 않습니다.';
+        return;
+      }
+      setSession(username);
+      loadUserData();
+      showScreen('main');
+      updateHpBar();
+      renderLists();
+    };
+
+    // 로그아웃
+    function logout() {
+      clearSession();
+      showScreen('start');
+      switchAuthTab('login');
+      document.getElementById('loginMsg').innerText = '';
+      document.getElementById('loginUsername').value = '';
+      document.getElementById('loginPassword').value = '';
+    }
+
+    // 폼 표시/숨김
+    function showForm(formId) {
+      hideAllForms();
+      document.getElementById(formId).style.display = 'block';
+    }
+    function hideForm(formId) {
+      document.getElementById(formId).style.display = 'none';
+      if(formId==='incomeForm'){
+        document.getElementById('incomeAmt').value = '';
+        document.getElementById('incomeDesc').value = '';
+      }else if(formId==='expenseForm'){
+        document.getElementById('expenseAmt').value = '';
+        document.getElementById('expenseDesc').value = '';
+      }else if(formId==='goalForm'){
+        document.getElementById('goalHp').value = '';
+      }
+    }
+    function hideAllForms() {
+      document.getElementById('incomeForm').style.display = 'none';
+      document.getElementById('expenseForm').style.display = 'none';
+      document.getElementById('goalForm').style.display = 'none';
+    }
+
+    // 예산 분석 내역 표시/숨김
+    function toggleAnalysis() {
+      const section = document.getElementById('analysisSection');
+      const btn = document.getElementById('analysisBtn');
+      if (section.style.display === 'none' || section.style.display === '') {
+        section.style.display = 'block';
+        btn.innerText = '분석 닫기';
+        renderLists();
+      } else {
+        section.style.display = 'none';
+        btn.innerText = '예산 분석하기';
+      }
+    }
+
+    // 게임 로직 변수
+    let maxHp = 0;
+    let currentHp = 0;
+    let warningThreshold = 0.2;
+    let goalHp = null;
+    let incomes = [];
+    let expenses = [];
+
+    // 캐릭터 상태별 이미지
+    const characterStates = [
+      {
+        min: 0.7, // 70% 이상
+        img: "https://github.com/tngus0814/tngus0814.github.io/blob/main/smile.png?raw=true",
+        status: "행복한 상태!"
+      },
+      {
+        min: 0.3, // 30% 이상 70% 미만
+        img: "https://github.com/tngus0814/tngus0814.github.io/blob/main/ddd.png?raw=true",
+        status: "평범한 상태"
+      },
+      {
+        min: 0, // 30% 미만
+        img: "https://github.com/tngus0814/tngus0814.github.io/blob/main/sad.png?raw=true",
+        status: "슬픈 상태..."
+      }
+    ];
+
+    function updateCharacter() {
+      let percent = maxHp ? (currentHp / maxHp) : 1;
+      let state = characterStates.find(s => percent >= s.min);
+      document.getElementById('characterImg').src = state.img;
+      document.getElementById('characterStatus').innerText = state.status;
+    }
+
+    function updateHpBar() {
+      document.getElementById('currentHp').innerText = currentHp;
+      document.getElementById('maxHp').innerText = maxHp;
+      let percent = maxHp ? (currentHp / maxHp * 100) : 0;
+      document.getElementById('hpFill').style.width = percent + "%";
+      if (percent <= warningThreshold * 100) {
+        document.getElementById('warningMsg').innerText = "경고: HP가 너무 낮습니다!";
+      } else {
+        document.getElementById('warningMsg').innerText = "";
+      }
+      if (goalHp !== null) {
+        if (currentHp >= goalHp) {
+          document.getElementById('goalStatus').innerHTML = '<span class="success">축하합니다! 목표 달성 🎉</span>';
+        } else {
+          document.getElementById('goalStatus').innerText = '목표까지 ' + (goalHp - currentHp) + ' 남음';
+        }
+      }
+      updateCharacter();
+    }
+
+    function setBudget() {
+      const val = parseInt(document.getElementById('initBudget').value, 10);
+      if (isNaN(val) || val <= 0) {
+        alert('올바른 예산을 입력하세요.');
+        return;
+      }
+      maxHp = val;
+      currentHp = val;
+      incomes = [];
+      expenses = [];
+      goalHp = null;
+      document.getElementById('goalStatus').innerText = '';
+      renderLists();
+      updateHpBar();
+      saveUserData();
+    }
+
+    function addIncome() {
+      const amt = parseInt(document.getElementById('incomeAmt').value, 10);
+      const desc = document.getElementById('incomeDesc').value || '수입';
+      if (isNaN(amt) || amt <= 0) {
+        alert('수입 금액을 입력하세요.');
+        return;
+      }
+      incomes.push({ amount: amt, desc });
+      currentHp += amt;
+      if (currentHp > maxHp) maxHp = currentHp;
+      renderLists();
+      updateHpBar();
+      saveUserData();
+      document.getElementById('incomeAmt').value = '';
+      document.getElementById('incomeDesc').value = '';
+    }
+
+    function addExpense() {
+      const amt = parseInt(document.getElementById('expenseAmt').value, 10);
+      const desc = document.getElementById('expenseDesc').value || '지출';
+      if (isNaN(amt) || amt <= 0) {
+        alert('지출 금액을 입력하세요.');
+        return;
+      }
+      if (amt > currentHp) {
+        alert('잔고가 부족합니다.');
+        return;
+      }
+      expenses.push({ amount: amt, desc });
+      currentHp -= amt;
+      renderLists();
+      updateHpBar();
+      saveUserData();
+      document.getElementById('expenseAmt').value = '';
+      document.getElementById('expenseDesc').value = '';
+    }
+
+    function setGoal() {
+      const val = parseInt(document.getElementById('goalHp').value, 10);
+      if (isNaN(val) || val <= 0) {
+        alert('올바른 목표를 입력하세요.');
+        return;
+      }
+      goalHp = val;
+      updateHpBar();
+      saveUserData();
+      document.getElementById('goalHp').value = '';
+    }
+
+    function renderLists() {
+      if (document.getElementById('analysisSection').style.display === 'block') {
+        const incomeList = document.getElementById('incomeList');
+        incomeList.innerHTML = incomes.length
+          ? incomes.map(i => `<li>${i.desc}: +${i.amount}원</li>`).join('')
+          : '<li>수입 내역이 없습니다.</li>';
+        const expenseList = document.getElementById('expenseList');
+        expenseList.innerHTML = expenses.length
+          ? expenses.map(e => `<li>${e.desc}: -${e.amount}원</li>`).join('')
+          : '<li>지출 내역이 없습니다.</li>';
+      }
+    }
+
+    // 항상 게임 시작 화면부터 보이게(새로고침/재접속 시)
+    window.onload = function() {
+      showScreen('start');
+      switchAuthTab('login');
+    };
+  </script>
+</body>
+</html>
