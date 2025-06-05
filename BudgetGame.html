@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Budget Game</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f7f7fa; margin: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px #ddd; }
+    .center { text-align: center; margin-top: 120px; }
+    .hp-bar { background: #eee; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+    .hp-fill { height: 24px; background: #76c7c0; transition: width 0.3s; }
+    .warning { color: #c0392b; font-weight: bold; }
+    .success { color: #27ae60; font-weight: bold; }
+    label { display: block; margin-top: 12px; }
+    input[type="number"], input[type="text"], input[type="password"] { width: 100%; padding: 6px; margin-top: 4px; }
+    button { margin-top: 10px; padding: 8px 20px; border: none; background: #76c7c0; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.3s; }
+    ul { padding-left: 20px; }
+    .section { margin-bottom: 32px; }
+    .form-popup { display: none; background: #f9f9f9; border: 1px solid #ccc; padding: 16px; border-radius: 8px; margin-top: 8px; }
+    .form-popup label { margin-top: 0; }
+    .form-actions { text-align: right; }
+    #analysisSection { display: none; }
+    .character-area { text-align: center; margin: 24px 0 24px 0; }
+    .character-area img { width: 120px; height: 120px; object-fit: contain; }
+    .tab-btn { margin: 0 8px; padding: 8px 20px; border: none; border-radius: 4px; background: #eee; color: #333; cursor: pointer; }
+    .tab-btn.active { background: #76c7c0; color: #fff; }
+    .logout-btn { float: right; background: #c0392b; }
+    /* 해금 보상 스타일 */
+    .reward-bg-1 { background: linear-gradient(120deg, #ffe082 0%, #ffb300 100%) !important; }
+    .reward-bg-2 { background: linear-gradient(120deg, #b2dfdb 0%, #009688 100%) !important; }
+    .reward-font-1 { font-family: 'Comic Sans MS', cursive, sans-serif !important; color: #ff5722 !important; }
+    .reward-font-2 { font-family: 'Nanum Brush Script', cursive, sans-serif !important; color: #3949ab !important; }
+    .reward-btn-1 { background: #ffb300 !important; color: #fff !important; font-weight: bold !important; border: 2px solid #ff9800 !important; }
+    .reward-btn-2 { background: #009688 !important; color: #fff !important; font-weight: bold !important; border: 2px solid #00695c !important; }
+    .reward-h1-1 { color: #ff6f00 !important; text-shadow: 2px 2px 8px #fff59d; }
+    .reward-h1-2 { color: #3949ab !important; text-shadow: 2px 2px 8px #b3e5fc; }
+    .unlock-badge { display:inline-block; margin:0 6px; padding:3px 8px; border-radius:10px; font-size:0.95em; background:#eee; color:#888; }
+    .unlock-badge.unlocked { background:#ffd54f; color:#ff6f00; font-weight:bold; }
+    .unlock-badge.applied { border:2px solid #3949ab; }
+    .reward-apply-btn { margin-left:8px; font-size:0.92em; padding:2px 10px; }
+    .reward-apply-btn[disabled] { background:#ddd; color:#aaa; cursor:not-allowed; }
+  </style>
+  <link href="https://fonts.googleapis.com/css?family=Nanum+Brush+Script&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- 초기화면 -->
+  <div id="startScreen" class="container center">
+    <h1>Budget Game</h1>
+    <button id="startBtn">게임 시작</button>
+  </div>
+
+  <!-- 회원가입/로그인 화면 -->
+  <div id="authScreen" class="container" style="display:none;">
+    <h1>Budget Game</h1>
+    <div style="text-align:center;">
+      <button class="tab-btn active" id="loginTabBtn" onclick="switchAuthTab('login')">로그인</button>
+      <button class="tab-btn" id="registerTabBtn" onclick="switchAuthTab('register')">회원가입</button>
+    </div>
+    <!-- 로그인 폼 -->
+    <form id="loginForm" style="margin-top:24px;">
+      <label>아이디
+        <input type="text" id="loginUsername" required>
+      </label>
+      <label>비밀번호
+        <input type="password" id="loginPassword" required>
+      </label>
+      <button type="submit">로그인</button>
+      <div id="loginMsg" class="warning"></div>
+    </form>
+    <!-- 회원가입 폼 -->
+    <form id="registerForm" style="display:none; margin-top:24px;">
+      <label>아이디
+        <input type="text" id="registerUsername" required>
+      </label>
+      <label>비밀번호
+        <input type="password" id="registerPassword" required>
+      </label>
+      <label>비밀번호 확인
+        <input type="password" id="registerPassword2" required>
+      </label>
+      <button type="submit">회원가입</button>
+      <div id="registerMsg" class="warning"></div>
+    </form>
+  </div>
+
+  <!-- 메인 게임 화면 -->
+  <div id="mainScreen" class="container" style="display:none;">
+    <button class="logout-btn" onclick="logout()" style="float:right;">로그아웃</button>
+    <h1 id="mainTitle">Budget Game</h1>
+    <div class="section">
+      <div class="hp-bar">
+        <div id="hpFill" class="hp-fill" style="width: 100%"></div>
+      </div>
+      <div>현재 HP(잔고): <span id="currentHp"></span> / <span id="maxHp"></span></div>
+      <div id="warningMsg" class="warning"></div>
+    </div>
+    <!-- 캐릭터 영역 -->
+    <div class="character-area">
+      <img id="characterImg" src="https://github.com/tngus0814/tngus0814.github.io/blob/main/smile.png?raw=true" alt="캐릭터">
+      <div id="characterStatus" style="margin-top:8px; font-weight:bold;"></div>
+    </div>
+    <div class="section">
+      <h2>예산 설정</h2>
+      <label>초기 예산 입력 (원):
+        <input type="number" id="initBudget" min="1" />
+      </label>
+      <button id="setBudgetBtn" onclick="handleSetBudget()">설정</button>
+    </div>
+    <div class="section">
+      <h2>수입/지출/목표 관리</h2>
+      <button id="addIncomeBtn" onclick="showForm('incomeForm')">수입 추가</button>
+      <button id="addExpenseBtn" onclick="showForm('expenseForm')">지출 추가</button>
+      <button id="setGoalBtn" onclick="showForm('goalForm')">목표 설정</button>
+      <!-- 수입 입력 폼 -->
+      <div id="incomeForm" class="form-popup">
+        <label>수입 (원):
+          <input type="number" id="incomeAmt" min="1" />
+        </label>
+        <label>설명:
+          <input type="text" id="incomeDesc" placeholder="설명" />
+        </label>
+        <div class="form-actions">
+          <button type="button" onclick="handleAddIncome(); hideForm('incomeForm');">등록</button>
+          <button type="button" onclick="hideForm('incomeForm')">취소</button>
+        </div>
+      </div>
+      <!-- 지출 입력 폼 -->
+      <div id="expenseForm" class="form-popup">
+        <label>지출 (원):
+          <input type="number" id="expenseAmt" min="1" />
+        </label>
+        <label>설명:
+          <input type="text" id="expenseDesc" placeholder="설명" />
+        </label>
+        <div class="form-actions">
+          <button type="button" onclick="handleAddExpense(); hideForm('expenseForm');">등록</button>
+          <button type="button" onclick="hideForm('expenseForm')">취소</button>
+        </div>
+      </div>
+      <!-- 목표 입력 폼 -->
+      <div id="goalForm" class="form-popup">
+        <label>목표 HP(잔고) 입력:
+          <input type="number" id="goalHp" min="1" />
+        </label>
+        <div class="form-actions">
+          <button type="button" onclick="handleSetGoal(); hideForm('goalForm');">등록</button>
+          <button type="button" onclick="hideForm('goalForm')">취소</button>
+        </div>
+      </div>
+      <div id="goalStatus" style="margin-top:8px;"></div>
+    </div>
+    <div class="section">
+      <button onclick="toggleAnalysis()" id="analysisBtn">예산 분석하기</button>
+      <div id="analysisSection">
+        <h2>수입 내역</h2>
+        <ul id="incomeList"></ul>
+        <h2>지출 내역</h2>
+        <ul id="expenseList"></ul>
+      </div>
+    </div>
+    <!-- 해금 현황 표시 -->
+    <div class="section" id="unlockSection">
+      <h2>해금된 꾸미기 보상</h2>
+      <div id="unlockBadges"></div>
+    </div>
+  </div>
+  <script>
+    // --- 보상 단계 정의 ---
+    const rewardStages = [
+      {
+        name: "배경색 해금",
+        classNames: ['reward-bg-1'],
+        targets: [() => document.getElementById('mainScreen')],
+      },
+      {
+        name: "폰트/색상 해금",
+        classNames: ['reward-font-1', 'reward-h1-1'],
+        targets: [
+          () => document.getElementById('mainScreen'),
+          () => document.getElementById('mainTitle')
+        ],
+      },
+      {
+        name: "버튼 스타일 해금",
+        classNames: ['reward-btn-1'],
+        targets: [
+          () => document.getElementById('setBudgetBtn'),
+          () => document.getElementById('addIncomeBtn'),
+          () => document.getElementById('addExpenseBtn'),
+          () => document.getElementById('setGoalBtn')
+        ],
+      },
+      {
+        name: "두 번째 배경 해금",
+        classNames: ['reward-bg-2'],
+        targets: [() => document.getElementById('mainScreen')],
+      },
+      {
+        name: "두 번째 폰트/색상 해금",
+        classNames: ['reward-font-2', 'reward-h1-2'],
+        targets: [
+          () => document.getElementById('mainScreen'),
+          () => document.getElementById('mainTitle')
+        ],
+      },
+      {
+        name: "두 번째 버튼 스타일 해금",
+        classNames: ['reward-btn-2'],
+        targets: [
+          () => document.getElementById('setBudgetBtn'),
+          () => document.getElementById('addIncomeBtn'),
+          () => document.getElementById('addExpenseBtn'),
+          () => document.getElementById('setGoalBtn')
+        ],
+      }
+    ];
+
+    // --- 객체지향 클래스 정의 ---
+    class BudgetData {
+      constructor() {
+        this.maxHp = 0;
+        this.currentHp = 0;
+        this.incomes = [];
+        this.expenses = [];
+        this.goalHp = null;
+        this.goalUnlockCount = 0; // 목표 달성 횟수(해금 단계)
+        this.appliedRewards = []; // 여러 보상 적용 상태
+      }
+      setBudget(hp) {
+        this.maxHp = hp;
+        this.currentHp = hp;
+        this.incomes = [];
+        this.expenses = [];
+        this.goalHp = null;
+      }
+      addIncome(amount, desc) {
+        this.incomes.push({ amount, desc });
+        this.currentHp += amount;
+        if (this.currentHp > this.maxHp) this.maxHp = this.currentHp;
+      }
+      addExpense(amount, desc) {
+        if (amount > this.currentHp) return false;
+        this.expenses.push({ amount, desc });
+        this.currentHp -= amount;
+        return true;
+      }
+      setGoal(hp) {
+        this.goalHp = hp;
+      }
+    }
+
+    class User {
+      constructor(username, password) {
+        this.username = username;
+        this.password = password;
+        this.data = new BudgetData();
+      }
+      checkPassword(pw) {
+        return this.password === pw;
+      }
+    }
+
+    class BudgetGame {
+      constructor() {
+        this.users = this.loadUsers();
+        this.currentUser = null;
+        this.warningThreshold = 0.2;
+      }
+      register(username, password) {
+        if (this.users[username]) return false;
+        this.users[username] = new User(username, password);
+        this.saveUsers();
+        return true;
+      }
+      login(username, password) {
+        const user = this.users[username];
+        if (!user || !user.checkPassword(password)) return false;
+        this.currentUser = user;
+        return true;
+      }
+      logout() {
+        this.currentUser = null;
+      }
+      saveUsers() {
+        const usersObj = {};
+        for (const [k, v] of Object.entries(this.users)) {
+          usersObj[k] = {
+            username: v.username,
+            password: v.password,
+            data: v.data
+          };
+        }
+        localStorage.setItem('bg_users_oop', JSON.stringify(usersObj));
+      }
+      loadUsers() {
+        const raw = localStorage.getItem('bg_users_oop');
+        if (!raw) return {};
+        const obj = JSON.parse(raw);
+        const users = {};
+        for (const [k, v] of Object.entries(obj)) {
+          const user = new User(v.username, v.password);
+          Object.assign(user.data, v.data);
+          users[k] = user;
+        }
+        return users;
+      }
+      saveCurrentUserData() {
+        this.saveUsers();
+      }
+    }
+
+    // --- 인스턴스 생성 및 UI 연결 ---
+    const game = new BudgetGame();
+
+    // 여러 보상 누적 적용/해제
+    function applyAllRewards(appliedArr) {
+      // 모든 보상 클래스 제거
+      rewardStages.forEach((stage, idx) => {
+        stage.targets.forEach((getTarget, c) => {
+          const el = getTarget();
+          if (!el) return;
+          stage.classNames.forEach(cls => el.classList.remove(cls));
+        });
+      });
+      // 적용된 보상만 모두 add
+      if (!Array.isArray(appliedArr)) return;
+      appliedArr.forEach(idx => {
+        const stage = rewardStages[idx];
+        if (!stage) return;
+        stage.targets.forEach((getTarget, c) => {
+          const el = getTarget();
+          if (!el) return;
+          stage.classNames.forEach(cls => el.classList.add(cls));
+        });
+      });
+      renderUnlockBadges();
+    }
+
+    // 해금 현황 UI + 적용/해제 버튼
+    function renderUnlockBadges() {
+      if (!game.currentUser) return;
+      const unlockCount = game.currentUser.data.goalUnlockCount || 0;
+      const appliedArr = game.currentUser.data.appliedRewards || [];
+      const el = document.getElementById('unlockBadges');
+      el.innerHTML = rewardStages.map((r, i) => {
+        const applied = appliedArr.includes(i);
+        return `<span class="unlock-badge${i < unlockCount ? ' unlocked' : ''}${applied ? ' applied' : ''}">
+          ${r.name}
+          <button class="reward-apply-btn" ${i < unlockCount ? '' : 'disabled'} onclick="toggleReward(${i})">
+            ${applied ? '해제' : '적용'}
+          </button>
+        </span>`;
+      }).join('');
+    }
+
+    // 보상 적용/해제 버튼 핸들러
+    window.toggleReward = function(idx) {
+      if (!game.currentUser) return;
+      const unlockCount = game.currentUser.data.goalUnlockCount || 0;
+      if (idx >= unlockCount) return;
+      let arr = game.currentUser.data.appliedRewards || [];
+      if (arr.includes(idx)) {
+        arr = arr.filter(x => x !== idx);
+      } else {
+        arr.push(idx);
+      }
+      game.currentUser.data.appliedRewards = arr;
+      game.saveCurrentUserData();
+      applyAllRewards(arr);
+    };
+
+    // 화면 전환
+    document.getElementById('startBtn').onclick = function() {
+      showScreen('auth');
+    };
+
+    function showScreen(screen) {
+      document.getElementById('startScreen').style.display = (screen === 'start') ? 'block' : 'none';
+      document.getElementById('authScreen').style.display = (screen === 'auth') ? 'block' : 'none';
+      document.getElementById('mainScreen').style.display = (screen === 'main') ? 'block' : 'none';
+    }
+
+    function switchAuthTab(tab) {
+      document.getElementById('loginTabBtn').classList.remove('active');
+      document.getElementById('registerTabBtn').classList.remove('active');
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('registerForm').style.display = 'none';
+      if (tab === 'login') {
+        document.getElementById('loginTabBtn').classList.add('active');
+        document.getElementById('loginForm').style.display = 'block';
+      } else {
+        document.getElementById('registerTabBtn').classList.add('active');
+        document.getElementById('registerForm').style.display = 'block';
+      }
+    }
+
+    // 회원가입
+    document.getElementById('registerForm').onsubmit = function(e) {
+      e.preventDefault();
+      const username = document.getElementById('registerUsername').value.trim();
+      const password = document.getElementById('registerPassword').value;
+      const password2 = document.getElementById('registerPassword2').value;
+      const msg = document.getElementById('registerMsg');
+      msg.innerText = '';
+      if (!username || !password) {
+        msg.innerText = '아이디와 비밀번호를 입력하세요.';
+        return;
+      }
+      if (password !== password2) {
+        msg.innerText = '비밀번호가 일치하지 않습니다.';
+        return;
+      }
+      if (!game.register(username, password)) {
+        msg.innerText = '이미 존재하는 아이디입니다.';
+        return;
+      }
+      alert('회원가입이 완료되었습니다.');
+      switchAuthTab('login');
+      document.getElementById('loginUsername').value = username;
+      document.getElementById('loginPassword').value = '';
+    };
+
+    // 로그인
+    document.getElementById('loginForm').onsubmit = function(e) {
+      e.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const msg = document.getElementById('loginMsg');
+      msg.innerText = '';
+      if (!game.login(username, password)) {
+        msg.innerText = '아이디 또는 비밀번호가 올바르지 않습니다.';
+        return;
+      }
+      showScreen('main');
+      updateHpBar();
+      renderLists();
+      document.getElementById('goalStatus').innerText = '';
+      hideAllForms();
+      // 로그인 시 해금 현황 및 적용된 보상 적용
+      if (game.currentUser) {
+        applyAllRewards(game.currentUser.data.appliedRewards);
+      }
+    };
+
+    // 로그아웃
+    function logout() {
+      game.logout();
+      showScreen('start');
+      switchAuthTab('login');
+      document.getElementById('loginMsg').innerText = '';
+      document.getElementById('loginUsername').value = '';
+      document.getElementById('loginPassword').value = '';
+      hideAllForms();
+    }
+
+    // 폼 표시/숨김
+    function showForm(formId) {
+      hideAllForms();
+      document.getElementById(formId).style.display = 'block';
+    }
+    function hideForm(formId) {
+      document.getElementById(formId).style.display = 'none';
+      if(formId==='incomeForm'){
+        document.getElementById('incomeAmt').value = '';
+        document.getElementById('incomeDesc').value = '';
+      }else if(formId==='expenseForm'){
+        document.getElementById('expenseAmt').value = '';
+        document.getElementById('expenseDesc').value = '';
+      }else if(formId==='goalForm'){
+        document.getElementById('goalHp').value = '';
+      }
+    }
+    function hideAllForms() {
+      document.getElementById('incomeForm').style.display = 'none';
+      document.getElementById('expenseForm').style.display = 'none';
+      document.getElementById('goalForm').style.display = 'none';
+    }
+
+    // 예산 분석 내역 표시/숨김
+    function toggleAnalysis() {
+      const section = document.getElementById('analysisSection');
+      const btn = document.getElementById('analysisBtn');
+      if (section.style.display === 'none' || section.style.display === '') {
+        section.style.display = 'block';
+        btn.innerText = '분석 닫기';
+        renderLists();
+      } else {
+        section.style.display = 'none';
+        btn.innerText = '예산 분석하기';
+      }
+    }
+
+    // 캐릭터 상태별 이미지
+    const characterStates = [
+      {
+        min: 0.7,
+        img: "https://github.com/tngus0814/tngus0814.github.io/blob/main/smile.png?raw=true",
+        status: "행복한 상태!"
+      },
+      {
+        min: 0.3,
+        img: "https://github.com/tngus0814/tngus0814.github.io/blob/main/ddd.png?raw=true",
+        status: "평범한 상태"
+      },
+      {
+        min: 0,
+        img: "https://github.com/tngus0814/tngus0814.github.io/blob/main/sad.png?raw=true",
+        status: "슬픈 상태..."
+      }
+    ];
+
+    function updateCharacter() {
+      if (!game.currentUser) return;
+      let percent = game.currentUser.data.maxHp ? (game.currentUser.data.currentHp / game.currentUser.data.maxHp) : 1;
+      let state = characterStates.find(s => percent >= s.min);
+      document.getElementById('characterImg').src = state.img;
+      document.getElementById('characterStatus').innerText = state.status;
+    }
+
+    // 목표 달성 시 해금 보상 처리
+    function updateHpBar() {
+      if (!game.currentUser) return;
+      const d = game.currentUser.data;
+      document.getElementById('currentHp').innerText = d.currentHp;
+      document.getElementById('maxHp').innerText = d.maxHp;
+      let percent = d.maxHp ? (d.currentHp / d.maxHp * 100) : 0;
+      document.getElementById('hpFill').style.width = percent + "%";
+      if (percent <= game.warningThreshold * 100) {
+        document.getElementById('warningMsg').innerText = "경고: HP가 너무 낮습니다!";
+      } else {
+        document.getElementById('warningMsg').innerText = "";
+      }
+      // 목표 달성 시 해금
+      if (d.goalHp !== null) {
+        if (d.currentHp >= d.goalHp) {
+          document.getElementById('goalStatus').innerHTML = '<span class="success">축하합니다! 목표 달성 🎉</span>';
+          // 목표 달성 시 해금 단계 증가(중복 방지)
+          if (!d._goalJustUnlocked) {
+            d.goalUnlockCount = (d.goalUnlockCount || 0) + 1;
+            d._goalJustUnlocked = true; // 플래그로 중복 방지
+            game.saveCurrentUserData();
+          }
+        } else {
+          document.getElementById('goalStatus').innerText = '목표까지 ' + (d.goalHp - d.currentHp) + ' 남음';
+          d._goalJustUnlocked = false;
+        }
+      }
+      // 적용된 보상 모두 적용
+      applyAllRewards(d.appliedRewards);
+      updateCharacter();
+    }
+
+    function handleSetBudget() {
+      if (!game.currentUser) return;
+      const val = parseInt(document.getElementById('initBudget').value, 10);
+      if (isNaN(val) || val <= 0) {
+        alert('올바른 예산을 입력하세요.');
+        return;
+      }
+      game.currentUser.data.setBudget(val);
+      game.saveCurrentUserData();
+      renderLists();
+      updateHpBar();
+      document.getElementById('goalStatus').innerText = '';
+    }
+
+    function handleAddIncome() {
+      if (!game.currentUser) return;
+      const amt = parseInt(document.getElementById('incomeAmt').value, 10);
+      const desc = document.getElementById('incomeDesc').value || '수입';
+      if (isNaN(amt) || amt <= 0) {
+        alert('수입 금액을 입력하세요.');
+        return;
+      }
+      game.currentUser.data.addIncome(amt, desc);
+      game.saveCurrentUserData();
+      renderLists();
+      updateHpBar();
+      document.getElementById('incomeAmt').value = '';
+      document.getElementById('incomeDesc').value = '';
+    }
+
+    function handleAddExpense() {
+      if (!game.currentUser) return;
+      const amt = parseInt(document.getElementById('expenseAmt').value, 10);
+      const desc = document.getElementById('expenseDesc').value || '지출';
+      if (isNaN(amt) || amt <= 0) {
+        alert('지출 금액을 입력하세요.');
+        return;
+      }
+      if (!game.currentUser.data.addExpense(amt, desc)) {
+        alert('잔고가 부족합니다.');
+        return;
+      }
+      game.saveCurrentUserData();
+      renderLists();
+      updateHpBar();
+      document.getElementById('expenseAmt').value = '';
+      document.getElementById('expenseDesc').value = '';
+    }
+
+    function handleSetGoal() {
+      if (!game.currentUser) return;
+      const val = parseInt(document.getElementById('goalHp').value, 10);
+      if (isNaN(val) || val <= 0) {
+        alert('올바른 목표를 입력하세요.');
+        return;
+      }
+      game.currentUser.data.setGoal(val);
+      game.saveCurrentUserData();
+      updateHpBar();
+      document.getElementById('goalHp').value = '';
+    }
+
+    function renderLists() {
+      if (!game.currentUser) return;
+      const d = game.currentUser.data;
+      if (document.getElementById('analysisSection').style.display === 'block') {
+        const incomeList = document.getElementById('incomeList');
+        incomeList.innerHTML = d.incomes.length
+          ? d.incomes.map(i => `<li>${i.desc}: +${i.amount}원</li>`).join('')
+          : '<li>수입 내역이 없습니다.</li>';
+        const expenseList = document.getElementById('expenseList');
+        expenseList.innerHTML = d.expenses.length
+          ? d.expenses.map(e => `<li>${e.desc}: -${e.amount}원</li>`).join('')
+          : '<li>지출 내역이 없습니다.</li>';
+      }
+    }
+
+    // 항상 게임 시작 화면부터 보이게(새로고침/재접속 시)
+    window.onload = function() {
+      showScreen('start');
+      switchAuthTab('login');
+      hideAllForms();
+    };
+  </script>
+</body>
+</html>
